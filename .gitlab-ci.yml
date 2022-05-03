@@ -1,0 +1,84 @@
+image:
+  name: amd64/ubuntu:latest
+  entrypoint:
+    - '/usr/bin/env'
+    - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+
+variables:
+  COMMAND_IAC: terraform #terraform/terragrunt
+
+cache:
+  paths:
+    - /builds/$CI_PROJECT_PATH/infrastructure/.terraform  #save dos modulos
+
+before_script:
+  - export DEBIAN_FRONTEND="noninteractive"
+  - export AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
+  - export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
+  - export AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION"
+  - apt-get -qy update && apt-get -qy install curl python3.8 python3-pip zip rsync && apt-get -qy install git
+  - curl -sS -L -O https://releases.hashicorp.com/terraform/0.14.8/terraform_0.14.8_linux_amd64.zip && unzip terraform_0.14.8_linux_amd64.zip && mv terraform /usr/local/bin/terraform && chmod u+x /usr/local/bin/terraform # baixando, descompactando e movendo executavel do terraform
+  - ln -s python3 /usr/bin/python && rm /usr/bin/pip && ln -s pip3 /usr/bin/pip #link simbolico para pip
+
+stages:
+  - infra_validation
+  - homol_plan
+  - homol_apply
+  - prod_plan
+  - prod_apply
+
+validacao_infra:
+  stage: infra_validation
+  script:
+    - $COMMAND_IAC init -backend-config="bucket=bucket-for-tfstate" -backend-config="region=us-east-1" -backend-config="key=homol/terraform.tfstate" -upgrade
+    - $COMMAND_IAC validate
+  only:
+    - merge_requests
+    - homol
+    - prod
+
+plan_homol:
+  stage: homol_plan
+  script:
+    - $COMMAND_IAC init -backend-config="bucket=bucket-for-tfstate" -backend-config="region=us-east-1" -backend-config="key=homol/terraform.tfstate" -upgrade
+    - $COMMAND_IAC plan -var-file=env/homol.tfvars 
+  only:
+    - merge_requests
+    - homol
+
+deploy_homol:
+  stage: homol_apply
+  script:
+    - $COMMAND_IAC init -backend-config="bucket=bucket-for-tfstate" -backend-config="region=us-east-1" -backend-config="key=homol/terraform.tfstate" -upgrade
+    - $COMMAND_IAC plan -var-file=env/homol.tfvars 
+    - $COMMAND_IAC apply -var-file=env/homol.tfvars  -auto-approve 
+  when: manual
+  only: 
+    - merge_requests
+    - homol
+
+
+#=================================================================
+#           Production Stages
+#=================================================================
+
+plan_prd:
+   stage: prod_plan
+   script:
+    - $COMMAND_IAC init -backend-config="bucket=bucket-for-tfstate" -backend-config="region=us-east-1" -backend-config="key=prod/terraform.tfstate" -upgrade
+    - $COMMAND_IAC plan -var-file=env/prod.tfvars 
+  when: manual
+  only:
+    - merge_requests
+    - prd
+
+# deploy_prd:
+#   stage: prd_apply
+#   script:
+#     - $COMMAND_IAC init $INIT_ARGUMENT_PRD
+#     - $COMMAND_IAC plan -var-file=env/prd.tfvars 
+#     - $COMMAND_IAC apply -var-file=env/prd.tfvars -auto-approve 
+#   when: manual
+#   only:
+#     - prd

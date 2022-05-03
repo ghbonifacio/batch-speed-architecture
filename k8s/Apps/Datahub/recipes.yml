@@ -1,0 +1,16 @@
+source:
+  type: athena
+  config:
+    # Coordinates
+    aws_region: sua_reagion (us-east-1 BR)
+    work_group: primary
+
+    # Credentialsls
+    username: ${AWS_ACCESS_KEY_ID}
+    password: ${AWS_SECRET_ACCESS_KEY}
+    database: database_cadastrada_no_Glue
+
+    # Options
+    s3_staging_dir: "s3://bucket_name/pasta1/pasta2/pastaN"
+
+sink:

@@ -1,0 +1,39 @@
+apiVersion: "sparkoperator.k8s.io/v1beta2"
+kind: SparkApplication
+metadata:
+  name: carga-dbahmd-info-escala-{{ macros.datetime.now().strftime("%Y-%m-%d-%H-%M-%S") }}
+  namespace: processing-hml
+spec:
+  timeToLiveSeconds: 86400
+  volumes:
+    - name: testevolume
+      emptyDir: {}
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: "id_account_ecr.us-east-1.amazonaws.com/spark-container:latest"
+  imagePullPolicy: Always
+  mainApplicationFile: "local:///app/dag_history_KPI.py"
+  sparkVersion: "3.0.0"
+  restartPolicy:
+    type: Never
+
+  driver:
+    cores: 1
+    coreRequest: "500m"
+    coreLimit: "1200m"
+    memory: "4G"
+    labels:
+      version: 3.0.0
+    serviceAccount: default
+  executor:
+    cores: 1
+    coreRequest: "500m"
+    coreLimit: "1200m"
+    instances: 1
+    memory: "4g"
+    labels:
+      version: 3.0.0
+    volumeMounts:
+      - name: testevolume
+        mountPath: /tmp
